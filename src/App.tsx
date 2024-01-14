@@ -4,11 +4,11 @@ import { useDropzone } from "react-dropzone";
 import { CustomFile } from "@/types/types";
 import { useToast } from "@/components/ui/use-toast";
 import { downloadFileToStorage, startNewSession } from "@/utils/utils";
-import Loader from "./components/loader";
+import Loader from "@/components/loader";
+import UploadedFiles from "@/components/uploaded-files";
 
 const App: React.FC = () => {
   const [peer, setPeer] = useState<Peer | null>(null);
-  const [loadingPeer, setLoadingPeer] = useState<boolean>(false);
   // peer connection id of other user
   const [peerConnectionId, setPeerConnectionId] = useState<string | null>(null);
   // store dataconnection between two peers
@@ -16,6 +16,7 @@ const App: React.FC = () => {
     null
   );
 
+  const [loadingPeer, setLoadingPeer] = useState<boolean>(false);
   const [uploadedFiles, setuploadedFiles] = useState<File[]>([]);
 
   const onDrop = useCallback(
@@ -217,14 +218,7 @@ const App: React.FC = () => {
                       )}
                     </div>
                     {uploadedFiles?.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <p>Selected:&nbsp;</p>
-                        <ul>
-                          {uploadedFiles?.map((file) => (
-                            <li key={file.name}>{file.name}</li>
-                          ))}
-                        </ul>
-                      </div>
+                      <UploadedFiles uploadedFiles={uploadedFiles} />
                     )}
                     <button
                       className="bg-purple-500 font-semibold text-white px-4 py-2 rounded-lg hover:bg-purple-600 w-full"
