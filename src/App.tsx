@@ -96,6 +96,7 @@ const App: React.FC = () => {
       size: file.size,
       mime: file.type,
     });
+    toast({ title: `You shared ${file.name}` });
   };
 
   const copyToClipboard = () => {
