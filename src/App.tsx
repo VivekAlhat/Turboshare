@@ -1,12 +1,14 @@
 import Peer, { DataConnection } from "peerjs";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { CustomFile } from "@/types/types";
 import { useToast } from "@/components/ui/use-toast";
 import { downloadFileToStorage, startNewSession } from "@/utils/utils";
+import Loader from "./components/loader";
 
 const App: React.FC = () => {
   const [peer, setPeer] = useState<Peer | null>(null);
+  const [loadingPeer, setLoadingPeer] = useState<boolean>(false);
   // peer connection id of other user
   const [peerConnectionId, setPeerConnectionId] = useState<string | null>(null);
   // store dataconnection between two peers
@@ -14,28 +16,42 @@ const App: React.FC = () => {
     null
   );
 
+  const [uploadedFiles, setuploadedFiles] = useState<File[]>([]);
+
+  const onDrop = useCallback(
+    (acceptedFiles: File[]) => {
+      setuploadedFiles([...uploadedFiles, ...acceptedFiles]);
+    },
+    [uploadedFiles]
+  );
+
   const { toast } = useToast();
 
-  const { acceptedFiles, getRootProps, getInputProps, isDragActive } =
-    useDropzone({
-      multiple: false,
-      maxFiles: 1,
-    });
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    multiple: false,
+    maxFiles: 1,
+    onDrop,
+  });
 
   const handleSessionStart = async () => {
+    setLoadingPeer(true);
     const peer = new Peer();
     peer.on("connection", (dc) => {
       setPeerConnection(dc);
       dc.on("data", (data) => {
         const file = data as CustomFile;
         downloadFileToStorage(file.blob, file.name);
-        toast({ title: `New file: ${file.name}` });
+        toast({ title: `New file: ${file.name}`, duration: 1000 });
       });
       // close peer connection when session is terminated by other user
-      dc.on("close", () => setPeerConnection(null));
+      dc.on("close", () => {
+        setPeerConnection(null);
+        toast({ title: "Peer disconnected", duration: 1000 });
+      });
     });
     await startNewSession(peer);
     setPeer(peer);
+    setLoadingPeer(false);
   };
 
   const handleSessionStop = () => {
@@ -50,12 +66,12 @@ const App: React.FC = () => {
 
   const handlePeerConnection = () => {
     if (!peerConnectionId) {
-      toast({ title: "No peer to connect" });
+      toast({ title: "No peer to connect", duration: 1000 });
       return;
     }
 
     if (peerConnectionId === peer?.id) {
-      toast({ title: "You can't connect with yourself" });
+      toast({ title: "You can't connect with yourself", duration: 1000 });
       return;
     }
 
@@ -66,28 +82,28 @@ const App: React.FC = () => {
       }
     );
     if (!connection) {
-      toast({ title: "Couldn't establish peer connection" });
+      toast({ title: "Couldn't establish peer connection", duration: 1000 });
     } else {
       setPeerConnection(connection);
       // below will be displayed to the who makes the connection
       connection.on("data", (data) => {
         const file = data as CustomFile;
         downloadFileToStorage(file.blob, file.name);
-        toast({ title: `New file: ${file.name}` });
+        toast({ title: `New file: ${file.name}`, duration: 1000 });
       });
     }
   };
 
   const handleFileSend = () => {
     if (!peerConnection) {
-      toast({ title: "No peer connected" });
+      toast({ title: "No peer connected", duration: 1000 });
       return;
     }
-    if (acceptedFiles.length === 0) {
-      toast({ title: "Please select a file" });
+    if (uploadedFiles.length === 0) {
+      toast({ title: "Please select a file", duration: 1000 });
       return;
     }
-    const file = acceptedFiles[0] as File;
+    const file = uploadedFiles[0] as File;
     const blob = new Blob([file], { type: file.type });
     peerConnection.send({
       type: "file",
@@ -96,12 +112,13 @@ const App: React.FC = () => {
       size: file.size,
       mime: file.type,
     });
-    toast({ title: `You shared ${file.name}` });
+    toast({ title: `You shared ${file.name}`, duration: 1000 });
+    setuploadedFiles([]);
   };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(peer!.id);
-    toast({ title: "Your ID is copied to clipboard" });
+    toast({ title: "Your ID is copied to clipboard", duration: 1000 });
   };
 
   useEffect(() => {
@@ -120,22 +137,24 @@ const App: React.FC = () => {
       <section className="px-6 pt-12 text-center space-y-2 relative overflow-hidden">
         <h1 className="text-6xl font-bold">Turboshare</h1>
         <p className="font-semibold">Lightning-fast P2P File Sharing</p>
-        <p className="text-gray-700 font-medium">
-          TurboShare harnesses the power of PeerJS for a blazing-fast, secure,
-          <br />
-          and decentralized file sharing experience.
-        </p>
         <div className="py-4">
           {!peer ? (
             <button
-              className="bg-gradient-to-r font-semibold text-white from-purple-400 via-purple-600 to-indigo-400 px-4 py-2 rounded-lg"
+              className="bg-gradient-to-r font-semibold text-white bg-purple-500 hover:bg-purple-600 px-4 py-2 rounded-lg"
               onClick={handleSessionStart}
             >
-              Start New Session
+              {loadingPeer ? (
+                <div className="flex items-center gap-2">
+                  <Loader />
+                  <span>Initialising Session</span>
+                </div>
+              ) : (
+                "Start New Session"
+              )}
             </button>
           ) : (
             <button
-              className="bg-gradient-to-r from-red-400 to-red-600 text-white font-semibold px-4 py-2 rounded-lg"
+              className="bg-red-500 hover:bg-red-600 text-white font-semibold px-4 py-2 rounded-lg"
               onClick={handleSessionStop}
             >
               Stop Session
@@ -147,8 +166,11 @@ const App: React.FC = () => {
         {peer && (
           <div className="space-y-4 text-center">
             <p>
-              Your peer ID is:{" "}
-              <span className="font-semibold" onClick={copyToClipboard}>
+              Your peer ID is:&nbsp;
+              <span
+                className="font-semibold cursor-pointer"
+                onClick={copyToClipboard}
+              >
                 {peer?.id}
               </span>
             </p>
@@ -194,16 +216,16 @@ const App: React.FC = () => {
                         </p>
                       )}
                     </div>
-                    {
-                      <div>
+                    {uploadedFiles?.length > 0 && (
+                      <div className="flex items-center gap-2">
                         <p>Selected:&nbsp;</p>
                         <ul>
-                          {acceptedFiles?.map((file) => (
+                          {uploadedFiles?.map((file) => (
                             <li key={file.name}>{file.name}</li>
                           ))}
                         </ul>
                       </div>
-                    }
+                    )}
                     <button
                       className="bg-purple-500 font-semibold text-white px-4 py-2 rounded-lg hover:bg-purple-600 w-full"
                       onClick={handleFileSend}
