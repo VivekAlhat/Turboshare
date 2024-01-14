@@ -50,7 +50,14 @@ const App: React.FC = () => {
         toast({ title: "Peer disconnected", duration: 1000 });
       });
     });
+
+    peer.on("error", (error) => {
+      toast({ title: error.message, duration: 1000 });
+      setPeerConnection(null);
+    });
+
     await startNewSession(peer);
+
     setPeer(peer);
     setLoadingPeer(false);
   };
@@ -82,6 +89,7 @@ const App: React.FC = () => {
         reliable: true,
       }
     );
+
     if (!connection) {
       toast({ title: "Couldn't establish peer connection", duration: 1000 });
     } else {

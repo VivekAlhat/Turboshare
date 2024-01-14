@@ -8,7 +8,7 @@ const startNewSession = (peer: Peer): Promise<string> => {
           resolve(id);
         })
         .on("error", (error: PeerError<string>) => {
-          console.error(error);
+          reject(new Error(error.message));
         });
     } catch (err) {
       reject(err);
